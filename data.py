@@ -7,9 +7,10 @@ import fastf1
 import fastf1.plotting
 import pandas as pd
 
+# Enable cache once, at import time — applies for the whole program run
+fastf1.Cache.enable_cache('cache')
+fastf1.plotting.setup_mpl(mpl_timedelta_support=True, misc_mpl_mods=False)
 
-fastf1.Cache.enable_cache("cache")
-fastf1.plotting.steup_mpl(mpl_timedelta_support = True, misc_mpl_nods = False)
 
 def load_session(year: int, gp: str, session_type: str):
     """
@@ -18,48 +19,44 @@ def load_session(year: int, gp: str, session_type: str):
     Args:
         year:         Championship season, e.g. 2024
         gp:           Grand Prix name, e.g. 'Bahrain', 'Monaco', 'Silverstone'
-        session_type: 'Q' (qualifying), 'R' (race), 'FP1'/'FP2'/'FP3', 'SQ' (sprint quali)
+        session_type: 'Q', 'R', 'FP1', 'FP2', 'FP3', 'S', 'SQ'
 
     Returns:
         fastf1.core.Session — fully loaded, ready to query
     """
     session = fastf1.get_session(year, gp, session_type)
-
-    # telemetry=False and weather=False speeds up loading significantly
-    # when you only need lap time data (not speed traces or track conditions)
-    session.load(telemetry = False, weather = False)
+    session.load(telemetry=False, weather=False)
     return session
 
 
-def best_lap(session) -> pd.DataFrame:
+def best_laps(session) -> pd.DataFrame:
     """
     Extract each driver's best lap from a session.
 
     pick_quicklaps() filters out:
-      - In-laps and out-laps (leaving/entering the pit)
+      - In-laps and out-laps
       - Laps with deleted times (track limits)
       - Laps under safety car / VSC
 
     Returns a DataFrame with one row per driver, sector times in seconds.
     """
     laps = session.laps.pick_quicklaps()
-    
-    #Group by driver, sort by Time, take the fastest
+
+    # Group by driver, sort by LapTime, take the fastest
     best = (
-        laps.groupby('Drivers')
+        laps.groupby('Driver')
         .apply(lambda x: x.sort_values('LapTime').iloc[0])
-        .reset_index(drop = True)
+        .reset_index(drop=True)
     )
 
-    # Sector times are stored as timedelta objects.
-    # .dt.total_seconds() converts them to plain floats for maths and plotting.
+    # Convert timedelta → float seconds for maths and plotting
     for col in ['Sector1Time', 'Sector2Time', 'Sector3Time', 'LapTime']:
         best[f'{col}Sec'] = best[col].dt.total_seconds()
-    
-    # Drop any driver whose sector data is incomplete (e.g. DNF mid-lap)
+
     return best[['Driver', 'Team',
                  'Sector1TimeSec', 'Sector2TimeSec',
-                 'Sector3TimesSec', 'LapTimeSec']].dropna().reset_index(drop=True)
+                 'Sector3TimeSec', 'LapTimeSec']].dropna().reset_index(drop=True)
+
 
 def driver_color(driver: str, session) -> str:
     """
@@ -68,6 +65,5 @@ def driver_color(driver: str, session) -> str:
     """
     try:
         return fastf1.plotting.driver_color(driver)
-    except:
+    except Exception:
         return '#888888'
-
