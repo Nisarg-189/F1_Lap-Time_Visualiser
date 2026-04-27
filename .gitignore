@@ -1,0 +1,13 @@
+# FastF1 downloads data here — can be hundreds of MB, don't commit it
+cache/
+
+# Generated charts — reproducible on demand, no need to track
+output/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+.venv/
